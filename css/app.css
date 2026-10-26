@@ -78,5 +78,8 @@ input[type="color"] { height: 32px; padding: 2px; }
   #print-sheet { display: block; padding: 12px; color: #000; }
 }
 .note { color: #5c6775; font-size: 13px; }
+.power-warn { color: #8a4b00; background: #fff6e8; }
+.phase-track { height: 8px; background: #e1e6ec; margin: 2px 0 8px; }
+.phase-track span { display: block; height: 8px; background: #d4145a; }
 ol { padding-left: 1.2em; }
 li { margin: 6px 0; }

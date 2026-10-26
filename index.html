@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NEOSUPO★STAR β4</title>
-  <link rel="stylesheet" href="css/app.css?v=20261022u" />
+  <link rel="stylesheet" href="css/app.css?v=20261026d" />
   <script type="importmap">
   {
     "imports": {
@@ -30,7 +30,7 @@
   <nav class="tabs">
     <button type="button" data-tab="layout" class="active">間取設定</button>
     <button type="button" data-tab="items">アイテム配置</button>
-    <button type="button" data-tab="power">電源管理</button>
+    <button type="button" data-tab="power">配電管理</button>
     <button type="button" data-tab="present">プレゼンテーション設定</button>
   </nav>
   <div class="workspace">
@@ -107,7 +107,8 @@
         <li>間取設定の壁抜き・開口部・腰壁でも壁に穴を開けられます。開口を選んで建具を付けると、ドアは床まで開きます。</li>
         <li>単価を入れるとプラン詳細の見積に出ます。空欄は未設定のままです。</li>
         <li>プレゼンテーションで視点、プラン全体の明るさ、画像の書き出しを使います。照明はスイッチと 10 段階です。</li>
-        <li>Excel書出とExcel読込がデータベースです。部屋は1セル10cmのマス、機材とドアの弧は図形です。斜めと円弧の壁はマスでは段差になります。位置の正データは配置データです。</li>
+        <li>配電管理では、分電盤・ブレーカー・コンセント・手元開閉器を図面に置きます。記号はこのタブのときだけ表示されます。回路を選ぶとその接続だけ線で示します。専用・一般・予備は左の確認に出ます。</li>
+        <li>Excel書出とExcel読込がデータベースです。部屋は1セル10cmのマス、機材とドアの弧は図形です。配電は配電シートが正データです。斜めと円弧の壁はマスでは段差になります。位置の正データは配置データです。</li>
       </ol>
       <p class="note">画面はこのブラウザで動きます。設備の電気・給排水・給排気・特ガスは機器の欄として保存します。電圧・回路・容量の計算と、メーカー製品の 3D モデルは入っていません。</p>
       <button value="close" type="submit">閉じる</button>
@@ -117,6 +118,6 @@
   <div id="print-sheet"></div>
   <script src="vendor/jszip.min.js?v=20261022w"></script>
   <script src="vendor/exceljs.min.js?v=20261022w"></script>
-  <script type="module" src="main.js?v=20261022v"></script>
+  <script type="module" src="main.js?v=20261026d"></script>
 </body>
 </html>

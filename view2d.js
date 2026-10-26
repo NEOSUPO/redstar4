@@ -25,6 +25,7 @@ import {
   openingCenter,
   syncLeaves,
 } from "./openings.js?v=20261022f";
+import { addBreaker, addOutlet, addPanel, drawPower, hitPower, placeAnchor, symbolById } from "./power.js?v=20261026d";
 import { snapValue, uid } from "./store.js?v=20261022l";
 import { seatItems, shiftGuests } from "./surface.js?v=20261022l";
 
@@ -97,6 +98,7 @@ export function createView2d(canvas, store, ui) {
     }
     for (const entry of loose) drawItem(entry, plan);
     for (const entry of atop) drawItem(entry, plan);
+    drawPower(ctx, plan, ui, screen, cam.scale);
     if (measure?.a && measure?.b) drawMeasure(measure.a, measure.b);
     if (drag?.kind === "new-room") drawDraft(drag.start, drag.current);
     if (drag?.kind === "marquee") drawDraft(drag.start, drag.current);
@@ -602,6 +604,60 @@ export function createView2d(canvas, store, ui) {
     return null;
   }
 
+  function handlePowerPointer(wpt) {
+    if (ui.tool === "power") {
+      const anchor = placeAnchor(store.get(), wpt.x, wpt.y);
+      let selected = null;
+      store.update((plan) => {
+        if (ui.powerSymbol === "panel") {
+          const panel = addPanel(plan, anchor);
+          selected = { kind: "panel", ids: [panel.id] };
+          return;
+        }
+        const symbol = symbolById(ui.powerSymbol);
+        const outlet = addOutlet(plan, symbol, anchor);
+        selected = { kind: "outlet", ids: [outlet.id] };
+      });
+      if (selected) ui.select(selected);
+      if (ui.powerSymbol === "panel") ui.setTool("select");
+      draw();
+      return true;
+    }
+    const hit = hitPower(store.get(), wpt.x, wpt.y, screen, cam.scale, ctx);
+    if (hit?.kind === "slot") {
+      let breaker = null;
+      store.update((plan) => {
+        const panel = plan.panels.find((entry) => entry.id === hit.id);
+        if (panel) breaker = addBreaker(plan, panel, { role: "spare" });
+      });
+      if (breaker) ui.select({ kind: "breaker", ids: [breaker.id] });
+      pointer.down = false;
+      draw();
+      return true;
+    }
+    if (hit?.kind === "breaker") {
+      ui.select({ kind: "breaker", ids: [hit.id] });
+      pointer.down = false;
+      draw();
+      return true;
+    }
+    if (hit?.kind === "outlet" || hit?.kind === "panel") {
+      ui.select({ kind: hit.kind, ids: [hit.id] });
+      drag = { kind: "move-power", id: hit.id, powerKind: hit.kind, origin: wpt, start: { x: hit.x, y: hit.y }, pending: true };
+      draw();
+      return true;
+    }
+    const item = hitItem(wpt.x, wpt.y);
+    if (item && !item.openingId) {
+      ui.select({ kind: "item", ids: [item.id] });
+      pointer.down = false;
+      draw();
+      return true;
+    }
+    drag = { kind: "pan", cx: cam.x, cy: cam.y, sx: pointer.sx, sy: pointer.sy, clearOnClick: true };
+    return true;
+  }
+
   canvas.addEventListener("contextmenu", (event) => event.preventDefault());
   canvas.addEventListener("pointerdown", (event) => {
     try {
@@ -618,6 +674,9 @@ export function createView2d(canvas, store, ui) {
     if (event.button === 1 || event.button === 2) {
       drag = { kind: "pan", cx: cam.x, cy: cam.y, sx: pointer.sx, sy: pointer.sy };
       return;
+    }
+    if (ui.tab === "power") {
+      if (handlePowerPointer(wpt)) return;
     }
     if (ui.tool === "room") {
       const placed = placedRoomId && hitRoom(wpt.x, wpt.y);
@@ -749,7 +808,7 @@ export function createView2d(canvas, store, ui) {
       draw();
       return;
     }
-    if (drag.kind === "move-items" || drag.kind === "move-rooms" || drag.kind === "move-opening" || drag.kind === "move-vertex" || drag.kind === "move-underlay" || drag.kind === "resize-underlay") {
+    if (drag.kind === "move-items" || drag.kind === "move-rooms" || drag.kind === "move-opening" || drag.kind === "move-vertex" || drag.kind === "move-underlay" || drag.kind === "resize-underlay" || drag.kind === "move-power") {
       if (drag.pending) {
         store.checkpoint();
         drag.pending = false;
@@ -840,6 +899,20 @@ export function createView2d(canvas, store, ui) {
         plan.underlay.y = state.start.y + dy;
       }
       if (state.kind === "resize-underlay") resizeUnderlay(plan.underlay, state, wpt, enabled);
+      if (state.kind === "move-power") {
+        const x = snapValue(state.start.x + (wpt.x - state.origin.x), snapSteps(), enabled);
+        const y = snapValue(state.start.y + (wpt.y - state.origin.y), snapSteps(), enabled);
+        const anchor = placeAnchor(plan, x, y);
+        const row = state.powerKind === "panel"
+          ? plan.panels.find((entry) => entry.id === state.id)
+          : plan.outlets.find((entry) => entry.id === state.id);
+        if (row) {
+          row.x = anchor.x;
+          row.y = anchor.y;
+          row.rotation = anchor.rotation;
+          row.roomId = anchor.roomId;
+        }
+      }
     });
   }
 
@@ -1148,6 +1221,13 @@ export function createView2d(canvas, store, ui) {
       include(item.x + reach, item.y + reach);
     }
     for (const point of swingPoints(plan)) include(point.x, point.y);
+    if (ui.tab === "power") {
+      for (const panel of plan.panels || []) {
+        include(panel.x, panel.y);
+        include(panel.x + 4300, panel.y + 340 * Math.max(1, panel.slots || 1));
+      }
+      for (const outlet of plan.outlets || []) include(outlet.x, outlet.y);
+    }
     if (!Number.isFinite(minX)) {
       cam.x = 4000;
       cam.y = 3000;

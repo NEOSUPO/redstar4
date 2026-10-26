@@ -1,6 +1,7 @@
 import { CATALOG, lookupItem } from "./catalog.js";
 import { centroid, distanceToBoundary, outlinePoints, pointInRoom } from "./geometry.js";
 import { hingePoint, leafSwing, openingCenter } from "./openings.js?v=20261022f";
+import { powerToRows, rowsToPower } from "./power.js?v=20261026d";
 import { CELL_MM } from "./schema.js";
 import { clearMissingHosts } from "./surface.js";
 
@@ -31,6 +32,7 @@ export function planToBook(plan) {
     drawings,
     grid,
     overview,
+    power: powerToRows(plan),
   };
 }
 
@@ -72,6 +74,7 @@ export function bookToPlan(tables) {
     views: parseJson(readLong(project, "views_json"), []),
     customItems,
     underlay: parseJson(readLong(project, "underlay_json"), null),
+    ...rowsToPower(tables.power),
   };
 }
 

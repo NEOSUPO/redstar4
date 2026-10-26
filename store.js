@@ -1,5 +1,6 @@
 import { ensureRoom, nearestEdge } from "./geometry.js";
 import { migrateOpenings } from "./openings.js?v=20261022f";
+import { normalizePower } from "./power.js?v=20261026d";
 import { clearMissingHosts } from "./surface.js";
 
 const STORAGE_KEY = "neosupo-star-beta4-plans-v1";
@@ -238,7 +239,11 @@ export function normalizePlan(plan) {
     views: Array.isArray(plan.views) ? plan.views : [],
     customItems: Array.isArray(plan.customItems) ? plan.customItems : [],
     underlay: plan.underlay?.href ? plan.underlay : null,
+    panels: plan.panels,
+    breakers: plan.breakers,
+    outlets: plan.outlets,
   };
+  normalizePower(next);
   attachWalls(next);
   migrateOpenings(next);
   clearMissingHosts(next);

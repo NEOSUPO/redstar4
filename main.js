@@ -1,11 +1,12 @@
-import { bookToPlan, planToBook } from "./book.js?v=20261022l";
+import { bookToPlan, planToBook } from "./book.js?v=20261026d";
 import { insertPoint, removePoint, roomArea, scaleRoom, setEdgeArc } from "./geometry.js?v=20261022d";
 import { ROOM_TYPES, categoryTree, lookupItem } from "./catalog.js";
-import { readTables, writeWorkbook } from "./excelio.js?v=20261022i";
+import { readTables, writeWorkbook } from "./excelio.js?v=20261026d";
 import { attachLeaf, clampOpenings, hingeForHand, noteRemovedVertex, resizeOpening, splitEdgeOpenings } from "./openings.js?v=20261022f";
-import { createStore, uid } from "./store.js?v=20261022l";
+import { bindPower, powerPanel } from "./power.js?v=20261026d";
+import { createStore, uid } from "./store.js?v=20261026d";
 import { seatItems } from "./surface.js?v=20261022l";
-import { createView2d } from "./view2d.js?v=20261022t";
+import { createView2d } from "./view2d.js?v=20261026d";
 
 const store = createStore();
 const ui = createController();
@@ -18,6 +19,7 @@ let mode = "2d";
 document.querySelectorAll(".tabs button").forEach((button) => {
   button.addEventListener("click", () => {
     tab = button.dataset.tab;
+    ui.setTab(tab);
     document.querySelectorAll(".tabs button").forEach((el) => el.classList.toggle("active", el === button));
     if (tab === "items" || tab === "layout" || tab === "power") ui.setTool("select");
     renderSidebar();
@@ -150,12 +152,13 @@ function syncChrome(plan) {
 function renderSidebar() {
   if (tab === "layout") sidebar.innerHTML = layoutPanel();
   else if (tab === "items") sidebar.innerHTML = itemPanel();
-  else if (tab === "power") sidebar.innerHTML = "";
+  else if (tab === "power") sidebar.innerHTML = powerPanel(store.get(), ui);
   else if (tab === "present") sidebar.innerHTML = presentPanel();
   bindSidebar();
 }
 
 function bindSidebar() {
+  bindPower(sidebar, store, ui, renderSidebar);
   sidebar.querySelector("#module")?.addEventListener("change", (event) => {
     const value = event.target.value;
     store.update((plan) => {
@@ -746,6 +749,29 @@ function deleteSelection() {
         }
       }
       plan.items = plan.items.filter((entry) => !remove.has(entry.id));
+      for (const breaker of plan.breakers || []) {
+        if (remove.has(breaker.itemId)) breaker.itemId = null;
+      }
+    }
+    if (sel.kind === "panel") {
+      const ids = new Set(sel.ids);
+      const breakerIds = new Set((plan.breakers || []).filter((row) => ids.has(row.panelId)).map((row) => row.id));
+      plan.panels = plan.panels.filter((row) => !ids.has(row.id));
+      plan.breakers = plan.breakers.filter((row) => !ids.has(row.panelId));
+      for (const outlet of plan.outlets || []) {
+        if (breakerIds.has(outlet.breakerId)) outlet.breakerId = null;
+      }
+    }
+    if (sel.kind === "breaker") {
+      const ids = new Set(sel.ids);
+      plan.breakers = plan.breakers.filter((row) => !ids.has(row.id));
+      for (const outlet of plan.outlets || []) {
+        if (ids.has(outlet.breakerId)) outlet.breakerId = null;
+      }
+    }
+    if (sel.kind === "outlet") {
+      const ids = new Set(sel.ids);
+      plan.outlets = plan.outlets.filter((row) => !ids.has(row.id));
     }
   });
   if (sel.kind === "item") {
@@ -758,7 +784,21 @@ function deleteSelection() {
 
 function duplicateSelection() {
   const sel = ui.selection;
-  if (!sel || sel.kind === "underlay") return;
+  if (!sel || sel.kind === "underlay" || sel.kind === "panel" || sel.kind === "breaker") return;
+  if (sel.kind === "outlet") {
+    const created = [];
+    store.update((plan) => {
+      for (const id of sel.ids) {
+        const source = plan.outlets.find((row) => row.id === id);
+        if (!source) continue;
+        const copy = { ...source, id: uid(), x: source.x + 400, y: source.y + 400 };
+        plan.outlets.push(copy);
+        created.push(copy.id);
+      }
+    });
+    if (created.length) ui.select({ kind: "outlet", ids: created });
+    return;
+  }
   if (sel.kind === "opening" || (sel.kind === "item" && sel.ids.some((id) => store.get().items.find((entry) => entry.id === id)?.openingId))) {
     return;
   }
@@ -1030,12 +1070,15 @@ function clamp(value, min, max) {
 
 function createController() {
   const listeners = new Set();
-  const state = { tool: "select", catalogId: null, roomType: "実験室", roomColor: "#d5e4f2", selection: null, wallPick: null };
+  const state = { tab: "layout", tool: "select", catalogId: null, roomType: "実験室", roomColor: "#d5e4f2", selection: null, wallPick: null, powerSymbol: null, powerPrompt: null };
   function emit() {
     listeners.forEach((fn) => fn());
   }
   return {
     get tool() { return state.tool; },
+    get tab() { return state.tab; },
+    get powerSymbol() { return state.powerSymbol; },
+    get powerPrompt() { return state.powerPrompt; },
     get catalogId() { return state.catalogId; },
     get roomType() { return state.roomType; },
     get roomColor() { return state.roomColor; },
@@ -1043,6 +1086,21 @@ function createController() {
     get wallPick() { return state.wallPick; },
     pickWall(pick) {
       state.wallPick = pick;
+      emit();
+    },
+    setTab(tab) {
+      state.tab = tab;
+      state.powerPrompt = null;
+      emit();
+    },
+    setPowerSymbol(id) {
+      state.powerSymbol = id;
+      state.tool = "power";
+      state.powerPrompt = null;
+      emit();
+    },
+    setPowerPrompt(id) {
+      state.powerPrompt = id;
       emit();
     },
     setTool(tool) {

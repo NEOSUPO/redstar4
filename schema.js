@@ -8,7 +8,7 @@ export const SHEET = {
   DRAWINGS: "図面一覧",
   SETTINGS: "図面設定",
   CANVAS: "図面",
-  OVERVIEW: "図面（縮小）",
+  POWER: "配電",
   LIST: "機器リスト",
 };
 

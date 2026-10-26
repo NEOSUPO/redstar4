@@ -1,3 +1,4 @@
+import { POWER_HEADERS } from "./power.js?v=20261026d";
 import {
   DRAWING_HEADERS,
   EQUIPMENT_HEADERS,
@@ -16,12 +17,11 @@ export async function writeWorkbook(book) {
   writeRows(workbook, SHEET.DRAWINGS, DRAWING_HEADERS, book.drawings);
   writePairs(workbook, SHEET.SETTINGS, book.settingsPairs);
   writeGrid(workbook, SHEET.CANVAS, book.grid);
-  writeGrid(workbook, SHEET.OVERVIEW, book.overview);
+  writeObjects(workbook, SHEET.POWER, POWER_HEADERS, book.power);
   writeList(workbook, book.equipment);
   const buffer = await workbook.xlsx.writeBuffer();
   return injectShapes(buffer, [
     { name: SHEET.CANVAS, grid: book.grid },
-    { name: SHEET.OVERVIEW, grid: book.overview },
   ]);
 }
 
@@ -36,6 +36,7 @@ export async function readTables(buffer) {
     equipment: equipment.length ? equipment : readList(workbook.getWorksheet(SHEET.LIST)),
     layout: readObjects(workbook.getWorksheet(SHEET.LAYOUT)),
     drawings: readObjects(workbook.getWorksheet(SHEET.DRAWINGS)),
+    power: readObjects(workbook.getWorksheet(SHEET.POWER)),
   };
 }
 
